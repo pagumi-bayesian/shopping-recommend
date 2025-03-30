@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: shopping_app_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    env_file: # 追加: .envファイルを読み込む
+      - .env
+    environment:
+      # 将来的にAPIキーなどを設定
+      # OPENAI_API_KEY: ${OPENAI_API_KEY} # .envファイルから読み込まれる
+      DATABASE_URL: sqlite:///./sql_app.db # 初期はSQLiteを使用
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    container_name: shopping_app_frontend
+    ports:
+      - "5173:5173" # Viteのデフォルトポート
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # node_modulesをホストと共有しないように設定
+    depends_on:
+      - backend
+    command: npm run dev -- --host # コンテナ内で開発サーバーを起動
+
+# volumes:
+  # 将来的にPostgreSQLなどのデータ永続化に使用
+  # postgres_data:

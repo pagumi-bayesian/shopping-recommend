@@ -1,0 +1,8 @@
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+python-dotenv>=1.0.0
+sqlalchemy>=2.0.0
+# LLM連携用 (例: OpenAI)
+openai>=1.0.0
+# LLM連携用 (Anthropic)
+anthropic>=0.20.0 # バージョンは適宜確認

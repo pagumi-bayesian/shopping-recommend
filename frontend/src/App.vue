@@ -11,8 +11,10 @@
   <main>
     <!-- ログイン/新規登録フォーム (未ログイン時) -->
     <div v-if="!user" class="auth-container">
+      <!-- 新規登録モードのタイトルは環境変数で制御しない（ログイン/新規登録の表示は維持） -->
       <h2>{{ isLoginMode ? 'ログイン' : '新規登録' }}</h2>
-      <form @submit.prevent="isLoginMode ? signIn() : signUp()">
+      <!-- フォームはログインモード、または新規登録許可時のみ表示 -->
+      <form v-if="isLoginMode || allowSignup" @submit.prevent="isLoginMode ? signIn() : signUp()">
         <div>
           <label for="email">メールアドレス:</label>
           <input type="email" id="email" v-model="email" required>
@@ -21,12 +23,20 @@
           <label for="password">パスワード:</label>
           <input type="password" id="password" v-model="password" required>
         </div>
+        <!-- 送信ボタンのテキストはモードに応じて変更 -->
         <button type="submit">{{ isLoginMode ? 'ログイン' : '新規登録' }}</button>
         <p v-if="authError" class="error">{{ authError }}</p>
       </form>
-      <button @click="isLoginMode = !isLoginMode" class="toggle-mode">
+      <!-- 新規登録が許可されていない場合、ログインフォームのみ表示 -->
+      <p v-if="!isLoginMode && !allowSignup" class="info">
+        現在、新規ユーザー登録は受け付けていません。
+      </p>
+      <!-- モード切り替えボタンは新規登録許可時のみ表示 -->
+      <button v-if="allowSignup" @click="isLoginMode = !isLoginMode" class="toggle-mode">
         {{ isLoginMode ? '新規登録はこちら' : 'ログインはこちら' }}
       </button>
+      <!-- デバッグ用: allowSignup と isLoginMode の値を表示 -->
+      <!-- <p>Debug: allowSignup={{ allowSignup }}, isLoginMode={{ isLoginMode }}</p> -->
     </div>
 
     <!-- メインコンテンツ (ログイン時) -->
@@ -119,6 +129,8 @@ const email = ref('');
 const password = ref('');
 const authError = ref('');
 const isLoginMode = ref(true); // true: ログインモード, false: 新規登録モード
+// 環境変数から新規登録の許可フラグを取得 (文字列 'true' と比較)
+const allowSignup = computed(() => import.meta.env.VITE_ALLOW_SIGNUP === 'true');
 
 // --- Existing State ---
 const API_BASE_URL = 'https://shopping-app-backend-981489163354.asia-northeast1.run.app';
@@ -141,6 +153,7 @@ const suggestionsText = ref('');
 const loadingSuggestions = ref(false);
 
 // --- Computed Properties ---
+// allowSignup を computed に移動
 const renderedSuggestions = computed(() => {
   if (suggestionsText.value) {
     return marked(suggestionsText.value);
@@ -150,6 +163,11 @@ const renderedSuggestions = computed(() => {
 
 // --- Firebase Auth Functions ---
 const signUp = async () => {
+  // 新規登録が許可されていない場合は処理を中断
+  if (!allowSignup.value) {
+      authError.value = '現在、新規ユーザー登録は受け付けていません。';
+      return;
+  }
   authError.value = ''; // エラーをクリア
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email.value, password.value);
@@ -473,6 +491,7 @@ onMounted(() => {
       email.value = ''; // 認証フォームもクリア
       password.value = '';
       authError.value = '';
+      isLoginMode.value = true; // ログアウト時はログインモードに戻す
     }
   });
   // fetchHistory(); // 初期表示は onAuthStateChanged 内で行うか、ユーザー選択を待つ
@@ -542,6 +561,11 @@ watch(displayUserId, (newUserId, oldUserId) => {
 }
 .auth-container .error {
   color: red;
+  margin-top: 1rem;
+  text-align: center;
+}
+.auth-container .info {
+  color: #6c757d; /* Bootstrap secondary color */
   margin-top: 1rem;
   text-align: center;
 }

@@ -12,12 +12,25 @@
 
 ## 1. 全体アーキテクチャ
 
+### テキスト記述
+
 ```
 【ローカル環境（初期フェーズ）】
 Webフロントエンド → Pythonバックエンド → SQLiteデータベース + LLM API
 
 【クラウド環境（将来フェーズ）】
 Webフロントエンド → Pythonバックエンド → PostgreSQLデータベース + LLM API
+```
+
+### Mermaid図 (ローカル環境)
+
+```mermaid
+graph LR
+    subgraph ローカル環境
+        A["Webフロントエンド(Vue.js)"] -- APIリクエスト --> B{"Pythonバックエンド(FastAPI)"};
+        B -- データ読み書き --> C[(SQLiteデータベース)];
+        B -- 提案生成リクエスト --> D{{"LLM API (Anthropic)"}};
+    end
 ```
 
 ## 2. 技術スタック
@@ -27,7 +40,7 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 - **言語**: Python
 - **フレームワーク**: FastAPI（高速、型ヒント対応、自動ドキュメント生成）
 - **コンテナ化**: Docker
-- **データベース**: 
+- **データベース**:
   - 初期: SQLite（シンプル、ファイルベース）
   - 将来: PostgreSQL（スケーラブル、クラウド対応）
 
@@ -39,8 +52,8 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 
 ### LLM統合
 
-- **API**: OpenAI API（GPT-3.5/4）または他のクラウドLLM
-- **将来オプション**: ローカルで動作するオープンソースLLM
+- **API**: Anthropic Claude API（主要モデル: claude-3-7-sonnet）
+- **将来オプション**: OpenAI APIやローカルで動作するオープンソースLLM
 
 ### インフラ
 
@@ -64,7 +77,6 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 - 季節情報取得モジュール
 
 ### データストア
-
 - 商品マスタ
 - 購入履歴
 - ユーザー設定
@@ -74,14 +86,15 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 ### USER
 
 - id: int (PK)
-- name: string
+- name: string (unique, indexed)
 - preferences: json
 
 ### PRODUCT
 
 - id: int (PK)
-- name: string
-- category: string
+- name: string (indexed)
+- category: string (indexed)
+- typical_price: float
 - seasonality: string
 
 ### PURCHASE_HISTORY
@@ -90,6 +103,7 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 - user_id: int (FK)
 - product_id: int (FK)
 - purchase_date: date
+- (数量フィールドは実装から削除)
 
 ### SUGGESTION
 
@@ -98,6 +112,7 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 - product_id: int (FK)
 - suggestion_date: date
 - reason: string
+- was_purchased: boolean
 - was_purchased: boolean
 
 ## 5. 主要機能と実装方針
@@ -110,12 +125,14 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
   - 時々購入する商品
   - ほとんど購入しない商品
   - 季節に合った商品
+- 提案結果はマークダウン形式で返され、フロントエンドでHTMLに変換して表示
 
 ### 2. 購入商品登録機能
 
-- シンプルなフォームで商品名、カテゴリ、購入日、数量を登録
+- シンプルなフォームで商品名、カテゴリ、購入日を登録（数量は不要）
 - 既存商品はオートコンプリートで選択可能
-- 新規商品は自動的にマスタに追加
+- 新規商品は専用ボタンでマスタに追加可能
+- ユーザー名もオートコンプリートで選択
 
 ### 3. 履歴分析機能
 
@@ -155,8 +172,8 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 ### LLM活用方法
 
 - **プロンプト設計**: 過去の購入パターンと季節情報を構造化して入力
-- **コスト最適化**: GPT-3.5など低コストモデルの活用、キャッシュ戦略
-- **将来拡張**: ローカルLLMへの切り替えオプション
+- **コスト最適化**: Claude-3-Sonnetモデルの活用、キャッシュ戦略
+- **将来拡張**: OpenAIやローカルLLMへの切り替えオプション
 
 ### データ管理
 
@@ -174,11 +191,29 @@ Webフロントエンド → Pythonバックエンド → PostgreSQLデータベ
 - **APIファースト**: フロントエンド変更に影響されないバックエンド
 
 ## 8. 開発環境構成
-
 Docker Compose環境を使用し、以下のコンテナを構成します：
 
 - FastAPI Backendコンテナ
 - Vue.js Frontendコンテナ
-- SQLiteコンテナ（または単純なボリュームマウント）
+- SQLiteデータベース（ボリュームマウント）
 
+VSCodeとDocker拡張機能を使用して開発を行います。
+
+## 9. 実装済み機能
+
+### バックエンド
+
+- ユーザー管理（作成、検索）
+- 商品管理（作成、検索）
+- 購入履歴の登録と取得
+- 季節情報の取得（現在の月から自動判定）
+- Anthropic Claude APIを使用した商品提案生成
+
+### フロントエンド
+
+- ユーザー名と商品名のオートコンプリート
+- 購入履歴の登録フォーム
+- ユーザーごとの購入履歴表示
+- AIからの提案表示（マークダウン→HTML変換）
+- レスポンシブなUI設計
 VSCodeとDocker拡張機能を使用して開発を行います。

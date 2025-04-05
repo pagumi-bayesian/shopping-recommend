@@ -1,0 +1,43 @@
+steps:
+  # Build the container image using Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'build',
+        # Tag the image with Artifact Registry path and 'latest' tag
+        '-t',
+        '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:latest',
+        # Specify the directory containing the Dockerfile
+        './backend',
+        # Specify the Dockerfile path explicitly
+        '-f',
+        './backend/Dockerfile',
+      ]
+    id: Build
+
+  # Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'push',
+        '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:latest',
+      ]
+    id: Push
+
+# Store the image name with the 'latest' tag
+images:
+  - '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:latest'
+
+# Define substitutions (variables) used in the steps
+substitutions:
+  # Artifact Registry location (region)
+  _LOCATION: asia-northeast1
+  # Artifact Registry repository name
+  _REPOSITORY: shopping-app-repo
+  # A name for the service, used as part of the image tag
+  _SERVICE_NAME: shopping-app-backend
+# COMMIT_SHA substitution is removed as we use 'latest' tag now
+
+# Configure logging options
+options:
+  logging: CLOUD_LOGGING_ONLY

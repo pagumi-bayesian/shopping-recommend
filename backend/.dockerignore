@@ -1,0 +1,33 @@
+# Git files
+.git
+.gitignore
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment (assuming it's in the backend directory, adjust if needed)
+# If your venv 'shopping-app' is outside 'backend', this might not be necessary here
+shopping-app/
+.venv/
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+
+# Alembic cache (if any)
+alembic.db
+
+# Test files (optional, if you don't need them in the image)
+# tests/
+# pytest.ini
+# .coverage

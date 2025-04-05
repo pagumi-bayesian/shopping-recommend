@@ -6,3 +6,11 @@ sqlalchemy>=2.0.0
 openai>=1.0.0
 # LLM連携用 (Anthropic)
 anthropic>=0.20.0 # バージョンは適宜確認
+# PostgreSQL非同期ドライバ
+asyncpg>=0.25.0
+# データベースマイグレーション
+alembic>=1.10.0
+# PostgreSQL同期ドライバ (Alembic用)
+psycopg2-binary>=2.9.0
+# SQLAlchemy asyncio 依存関係
+greenlet>=1.1.0

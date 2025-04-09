@@ -1,0 +1,39 @@
+# Git ファイルを除外
+.git/
+.gitignore
+
+# Node.js の依存関係を除外
+node_modules/
+frontend/node_modules/
+
+# Python 仮想環境を除外
+venv/
+.venv/
+
+# Python キャッシュファイルを除外
+__pycache__/
+*.pyc
+
+# Docker 関連ファイル (ビルドプロセスで不要な場合)
+# .dockerignore
+# Dockerfile # Cloud Build で Docker イメージをビルドする場合は除外しない
+
+# OS 固有ファイル
+.DS_Store
+Thumbs.db
+
+# IDE/エディタ設定ファイル
+.vscode/
+.idea/
+
+# ローカル環境変数ファイル
+.env
+
+# Cloud SQL Proxy バイナリ (もしあれば)
+cloud-sql-proxy
+
+# ローカル検証用の仮想環境まわり
+shopping-app/
+
+# ドキュメント
+docs/

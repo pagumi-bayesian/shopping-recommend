@@ -3,5 +3,5 @@ __pycache__/
 *.db
 cloud-sql-proxy
 frontend/src/firebaseConfig.js
-frontend/.env
+frontend/.env*
 backend/.env

@@ -148,7 +148,8 @@ const isLoginMode = ref(true); // true: ログインモード, false: 新規登�
 const allowSignup = computed(() => import.meta.env.VITE_ALLOW_SIGNUP === 'true');
 
 // --- Existing State ---
-const API_BASE_URL = 'https://shopping-app-backend-981489163354.asia-northeast1.run.app';
+// APIベースURLを環境変数から取得
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const newPurchase = reactive({
   purchaseDate: new Date().toISOString().split('T')[0],
 });
@@ -563,8 +564,8 @@ onMounted(() => {
 watch(appSelectedUserId, (newUserId) => {
   if (user.value && newUserId) {
     currentPage.value = 1; // ユーザー変更時に最初のページに戻る
-    fetchHistory();
-    fetchSuggestions(); // 提案も更新
+    fetchHistory(); // 履歴はユーザー選択時に自動更新
+    // fetchSuggestions(); // 提案はボタンクリック時のみ取得するように変更
   } else if (!newUserId) {
       // ユーザー選択がクリアされた場合も履歴と提案をクリアし、ページをリセット
       historyList.value = [];

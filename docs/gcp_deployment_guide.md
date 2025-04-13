@@ -78,8 +78,9 @@
     ```
     *   **注意:** `cloudbuild.yaml` には、バックエンドの Docker イメージをビルドし、`asia-northeast1-docker.pkg.dev/YOUR_PROJECT_ID/shopping-app-repo/shopping-app-backend:latest` のようなタグで Artifact Registry にプッシュするステップが含まれている必要があります。
 
-2.  **Cloud Run サービスの更新:**
-    ビルドが完了したら、以下のコマンドを実行して Cloud Run サービスを新しいイメージで更新します。**`YOUR_PROJECT_ID` と `YOUR_INSTANCE_CONNECTION_NAME` は実際の値に置き換えてください。**
+2. **Cloud Run サービスの更新:**
+    ビルドが完了したら、以下のコマンドを実行して Cloud Run サービスを新しいイメージで更新します。**`YOUR_PROJECT_ID` 、 `YOUR_INSTANCE_CONNECTION_NAME`、`YOUR_LANGSMITH_PROJECT_NAME` は実際の値に置き換えてください。**
+
     ```bash
     gcloud run deploy shopping-app-backend \
       --image asia-northeast1-docker.pkg.dev/YOUR_PROJECT_ID/shopping-app-repo/shopping-app-backend:latest \
@@ -87,18 +88,19 @@
       --platform managed \
       --allow-unauthenticated \
       --add-cloudsql-instances YOUR_INSTANCE_CONNECTION_NAME \
-      --set-env-vars INSTANCE_CONNECTION_NAME=YOUR_INSTANCE_CONNECTION_NAME,DB_USER=postgres,DB_NAME=postgres \
-      --set-secrets DB_PASSWORD=shopping-app-db-password:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest
+      --set-env-vars INSTANCE_CONNECTION_NAME=YOUR_INSTANCE_CONNECTION_NAME,DB_USER=postgres,DB_NAME=postgres,LANGCHAIN_TRACING_V2=true,LANGCHAIN_ENDPOINT=https://api.smith.langchain.com,LANGCHAIN_PROJECT=YOUR_LANGSMITH_PROJECT_NAME \
+      --set-secrets DB_PASSWORD=shopping-app-db-password:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest,LANGCHAIN_API_KEY=langchain_api_key:latest
     ```
-    *   **コマンドの説明:**
-        *   `gcloud run deploy shopping-app-backend`: `shopping-app-backend` サービスをデプロイ/更新します。
-        *   `--image ...`: 使用する Docker イメージを指定します (Cloud Build でプッシュしたもの)。
-        *   `--region ...`: デプロイ先のリージョン。
-        *   `--platform managed`: マネージドプラットフォームを使用。
-        *   `--allow-unauthenticated`: 認証なしアクセスを許可 (フロントエンドからのアクセス用)。
-        *   `--add-cloudsql-instances ...`: Cloud SQL インスタンスへの接続を有効化。`YOUR_INSTANCE_CONNECTION_NAME` を置き換えてください。
-        *   `--set-env-vars ...`: 環境変数を設定。`YOUR_INSTANCE_CONNECTION_NAME` を置き換えてください。
-        *   `--set-secrets ...`: Secret Manager のシークレットを環境変数として設定。
+
+    * **コマンドの説明:**
+        * `gcloud run deploy shopping-app-backend`: `shopping-app-backend` サービスをデプロイ/更新します。
+        * `--image ...`: 使用する Docker イメージを指定します (Cloud Build でプッシュしたもの)。
+        * `--region ...`: デプロイ先のリージョン。
+        * `--platform managed`: マネージドプラットフォームを使用。
+        * `--allow-unauthenticated`: 認証なしアクセスを許可 (フロントエンドからのアクセス用)。
+        * `--add-cloudsql-instances ...`: Cloud SQL インスタンスへの接続を有効化。`YOUR_INSTANCE_CONNECTION_NAME` を置き換えてください。
+        * `--set-env-vars ...`: 環境変数を設定。`YOUR_INSTANCE_CONNECTION_NAME` や``を置き換えてください。
+        * `--set-secrets ...`: Secret Manager のシークレットを環境変数として設定。
 
 ### 4.2. フロントエンドの更新・デプロイ (Firebase Hosting)
 
@@ -114,7 +116,7 @@
     これにより `frontend/dist` ディレクトリにビルド成果物が生成されます。
 
 2.  **Firebase Hosting へのデプロイ:**
-    プロジェクトのルートディレクトリで以下のコマンドを実行し、ビルドされたファイルを Firebase Hosting にデプロイします。
+    `frontend` ディレクトリで以下のコマンドを実行し、ビルドされたファイルを Firebase Hosting にデプロイします。
     ```bash
     firebase deploy --only hosting
     ```

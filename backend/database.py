@@ -18,18 +18,31 @@ DB_NAME = os.getenv("DB_NAME", "postgres") # デフォルトDBを使用
 # 例: shopping-app-455905:asia-northeast1:shopping-app-db
 INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME")
 
+# --- デバッグプリント追加 ---
+print(f"DEBUG: INSTANCE_CONNECTION_NAME = '{INSTANCE_CONNECTION_NAME}' (Type: {type(INSTANCE_CONNECTION_NAME)})")
+# -------------------------
 if INSTANCE_CONNECTION_NAME:
     # Unixソケット接続 (Cloud Runなど)
     # パスワードはURLエンコードが必要な場合があるため注意
     # (asyncpgは自動で処理してくれることが多い)
     DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@/{DB_NAME}?host=/cloudsql/{INSTANCE_CONNECTION_NAME}"
+    print("DEBUG: Using Unix socket connection (Cloud Run mode)") # デバッグプリント追加
 else:
     # TCP接続 (ローカル開発、Cloud SQL Proxyなど)
     DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    print("DEBUG: Using TCP connection (Local/Proxy mode)") # デバッグプリント追加
 
 # --- SQLAlchemy非同期エンジンを作成 ---
 # echo=Trueにすると実行されるSQLがログに出力される（デバッグ時に便利）
-engine = create_async_engine(DATABASE_URL, echo=False)
+# --- デバッグプリント追加 ---
+print(f"DEBUG: DATABASE_URL = {DATABASE_URL}")
+# -------------------------
+
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"ssl": "disable"} # asyncpg に SSL を無効にするよう指示
+)
 
 # --- 非同期データベースセッションを作成するためのクラス ---
 # expire_on_commit=False は非同期コードで推奨される設定
@@ -46,4 +59,8 @@ async def get_db():
     非同期データベースセッションを提供する依存性関数
     """
     async with AsyncSessionLocal() as session:
-        yield session
+        try: # デバッグ用に try-except を追加
+            yield session
+        except Exception as e:
+            print(f"DEBUG: Error during DB session: {e}") # エラー発生時のデバッグプリント
+            raise # エラーを再送出

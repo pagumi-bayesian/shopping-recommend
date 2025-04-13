@@ -5,7 +5,11 @@ sqlalchemy>=2.0.0
 # LLM連携用 (例: OpenAI)
 openai>=1.0.0
 # LLM連携用 (Anthropic)
-anthropic>=0.20.0 # バージョンは適宜確認
+anthropic>=0.20.0 # LangChainが内部で使用する可能性もあるため残すか、削除するか検討
+# LangChain
+langchain>=0.1.0 # 最新の安定版に合わせる
+langchain-anthropic>=0.1.0 # Anthropic連携用
+langchain-core>=0.1.0 # LangChainのコア部分
 # PostgreSQL非同期ドライバ
 asyncpg>=0.25.0
 # データベースマイグレーション

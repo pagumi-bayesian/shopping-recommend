@@ -159,24 +159,19 @@ async def suggest_items_endpoint(user_id: int, db: AsyncSession = Depends(databa
 
 
     # 現在の季節を取得
-    current_season = get_current_season()
+    # current_season = get_current_season()
 
     # LLMへのプロンプトを作成
     # llm_interface.format_purchase_history_for_prompt は history_dict を受け取るように修正が必要かもしれない
     history_text = llm_interface.format_purchase_history_for_prompt(history_dict) # 辞書リストを渡す
-    prompt = f"""ユーザーID {user_id} の購入履歴と現在の季節情報に基づいて、おすすめの商品を5つ提案してください。
-提案は具体的な商品名を挙げ、なぜそれをおすすめするのか簡単な理由も添えてください。
-定番だけでなく、少し意外性のある商品も混ぜてください。
+    prompt = f"""以下が、ユーザーID {user_id}がこれまでに購入した食品の履歴です。
+この履歴を参考にして、次回購入すべき食品を提案してください。
 
 {history_text}
-
-現在の季節は「{current_season}」です。
-
-提案リスト:
 """
 
     # LLMから提案を生成 (llm_interface.py内の関数が同期的なのでawait不要)
-    suggestion_text = llm_interface.generate_suggestions(prompt)
+    suggestion_text = llm_interface.generate_suggestions(user_prompt=prompt) # 引数名を user_prompt に変更
 
     if not suggestion_text:
         raise HTTPException(status_code=500, detail="Failed to generate suggestions from LLM.")

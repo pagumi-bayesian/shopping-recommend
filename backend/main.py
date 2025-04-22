@@ -1,13 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException
 import os
 from dotenv import load_dotenv
-# from sqlalchemy.orm import Session # 削除
-from sqlalchemy.ext.asyncio import AsyncSession # 追加: 非同期セッション
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager # Import asynccontextmanager
+import logging # Import logging
 
 # ローカルモジュールを絶対インポート
 import models
-import database
+from database import download_db_file_async, upload_db_file_async # Import new async functions
+import database # Keep this for Depends(database.get_db)
 import crud
 import schemas
 import llm_interface
@@ -15,16 +17,27 @@ from datetime import date
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
+logger = logging.getLogger(__name__)
 
-# --- データベーステーブル作成 ---
-# アプリケーション起動時にモデルに基づいてテーブルを作成する
-# models.Base.metadata.create_all(bind=database.engine) # 非同期エンジンでは直接実行できないためコメントアウト。マイグレーションツール(Alembic等)の使用を推奨。
-# -----------------------------
+# --- Application Lifespan ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Download DB from GCS
+    logger.info("Application startup: Downloading database...")
+    await download_db_file_async()
+    logger.info("Database download complete (or skipped if exists/not found).")
+    yield
+    # Shutdown: Upload DB to GCS
+    logger.info("Application shutdown: Uploading database...")
+    await upload_db_file_async()
+    logger.info("Database upload complete.")
 
+# --- FastAPI App Initialization ---
 app = FastAPI(
     title="Shopping Recommendation API",
     description="API for suggesting items to buy.",
     version="0.1.0",
+    lifespan=lifespan # Add the lifespan manager
 )
 
 # --- CORSミドルウェアの設定 ---
@@ -190,3 +203,10 @@ if __name__ == "__main__":
     # この場合、.envファイルが読み込まれる想定
     print("Running uvicorn for local development...")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+# アプリケーション終了時のイベントハンドラ (削除 - lifespanで処理)
+# @app.on_event("shutdown")
+# async def shutdown_event():
+#     """アプリケーション終了時にDBファイルをCloud Storageにアップロード"""
+#     # from database import upload_db_file # Use the async version now
+#     await upload_db_file_async()

@@ -8,10 +8,11 @@
 
 *   **バックエンド:** Python (FastAPI) 製。Cloud Run にコンテナとしてデプロイ。
 *   **フロントエンド:** Vue.js 製。Firebase Hosting にデプロイ。
-*   **データベース:** PostgreSQL。Cloud SQL でホスト。
+*   **データベース:** SQLite。Cloud Storage にファイルを永続化。
 *   **コンテナビルド:** Cloud Build を使用してバックエンドの Docker イメージをビルド。
 *   **コンテナレジストリ:** Artifact Registry を使用してバックエンドのコンテナイメージを管理。
-*   **シークレット管理:** Secret Manager を使用してデータベースパスワードや API キーを管理。
+*   **シークレット管理:** Secret Manager を使用して API キーを管理 (DBパスワードは不要に)。
+*   **ファイルストレージ:** Cloud Storage を使用して SQLite データベースファイルを保存。
 
 ## 2. 前提条件
 
@@ -25,23 +26,25 @@
 *   **有効な API:** プロジェクトで以下の API が有効になっていること。
     *   Cloud Build API
     *   Cloud Run Admin API
-    *   Cloud SQL Admin API
+    *   Cloud Storage API # 追加
     *   Artifact Registry API
     *   Secret Manager API
     *   Identity and Access Management (IAM) API
+    # Cloud SQL Admin API は不要
 *   **ソースコードリポジトリ:** アプリケーションのソースコードが Git リポジトリで管理されていること。
 
 ## 3. GCP リソースの準備 (初回のみ)
 
 以下のリソースがまだ準備されていない場合は、作成してください。
 
-### 3.1. Cloud SQL (PostgreSQL)
+### 3.1. Cloud Storage バケット
 
-1.  **インスタンスの作成:** GCP Console で PostgreSQL インスタンスを作成します。インスタンス ID、デフォルトユーザー (`postgres`) のパスワード、リージョン (`asia-northeast1` など) を設定します。
-    *   **注意:** デフォルトユーザーのパスワードは安全な場所に記録し、後で Secret Manager に登録します。
-    *   「接続」設定で「**プライベート IP**」を有効にし、ネットワーク (通常は `default`) を選択します。
-2.  **データベースの作成:** 作成したインスタンス内に、アプリケーション用のデータベース (例: `shopping_app_db`) を作成します。
-3.  **インスタンス接続名:** 作成したインスタンスの「概要」ページで**インスタンス接続名** (例: `YOUR_PROJECT_ID:asia-northeast1:your-instance-id`) を確認し、控えておきます。
+1.  **バケットの作成:** GCP Console または `gsutil` コマンドを使用して、SQLite データベースファイルを保存するための Cloud Storage バケットを作成します (例: `shopping-app-sqlite-db`、リージョン: `asia-northeast1`、標準ストレージクラス)。
+    ```bash
+    gsutil mb -l asia-northeast1 gs://shopping-app-sqlite-db
+    ```
+2.  **IAM権限:** Cloud Run サービスが使用するサービスアカウントに、このバケットへの読み取りおよび書き込み権限 (`roles/storage.objectAdmin` または `roles/storage.objectUser`) を付与します (後述のデプロイ手順で設定)。
+# Cloud SQL (PostgreSQL) セクションは削除
 
 ### 3.2. Artifact Registry
 
@@ -50,12 +53,13 @@
 ### 3.3. Secret Manager
 
 1.  **シークレットの作成:** GCP Console で Secret Manager に以下のシークレットを作成します。
-    *   `shopping-app-db-password`: Cloud SQL の `postgres` ユーザーのパスワード。
     *   `anthropic-api-key`: Anthropic API キー。
+    *   `langchain-api-key`: LangSmith API キー (使用している場合)。
     *   (その他、アプリケーションが必要とする API キーなど)
+    *   `shopping-app-db-password` は不要になりました。
 2.  **Cloud Build/Run サービスアカウントへの権限付与:**
     *   Cloud Build サービスアカウント (`[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`) に、ビルド時に使用するシークレット (もしあれば) への「**Secret Manager のシークレット アクセサー**」ロールを付与します。
-    *   Cloud Run サービスが使用するサービスアカウント (デフォルトまたは指定したもの) に、`shopping-app-db-password` と `anthropic-api-key` への「**Secret Manager のシークレット アクセサー**」ロールを付与します。
+    *   Cloud Run サービスが使用するサービスアカウント (デフォルトまたは指定したもの) に、`anthropic-api-key` や `langchain-api-key` など、アプリケーションが使用するシークレットへの「**Secret Manager のシークレット アクセサー**」ロールを付与します。
 
 ### 3.4. Firebase プロジェクト
 
@@ -79,17 +83,19 @@
     *   **注意:** `cloudbuild.yaml` には、バックエンドの Docker イメージをビルドし、`asia-northeast1-docker.pkg.dev/YOUR_PROJECT_ID/shopping-app-repo/shopping-app-backend:latest` のようなタグで Artifact Registry にプッシュするステップが含まれている必要があります。
 
 2. **Cloud Run サービスの更新:**
-    ビルドが完了したら、以下のコマンドを実行して Cloud Run サービスを新しいイメージで更新します。**`YOUR_PROJECT_ID` 、 `YOUR_INSTANCE_CONNECTION_NAME`、`YOUR_LANGSMITH_PROJECT_NAME` は実際の値に置き換えてください。**
+    ビルドが完了したら、以下のコマンドを実行して Cloud Run サービスを新しいイメージで更新します。**`YOUR_PROJECT_ID`、`YOUR_STORAGE_BUCKET_NAME`、`YOUR_DB_FILE_NAME`、`YOUR_LANGSMITH_PROJECT_NAME` は実際の値に置き換えてください。**
 
     ```bash
     gcloud run deploy shopping-app-backend \
-      --image asia-northeast1-docker.pkg.dev/YOUR_PROJECT_ID/shopping-app-repo/shopping-app-backend:latest \
-      --region asia-northeast1 \
-      --platform managed \
-      --allow-unauthenticated \
-      --add-cloudsql-instances YOUR_INSTANCE_CONNECTION_NAME \
-      --set-env-vars INSTANCE_CONNECTION_NAME=YOUR_INSTANCE_CONNECTION_NAME,DB_USER=postgres,DB_NAME=postgres,LANGCHAIN_TRACING_V2=true,LANGCHAIN_ENDPOINT=https://api.smith.langchain.com,LANGCHAIN_PROJECT=YOUR_LANGSMITH_PROJECT_NAME \
-      --set-secrets DB_PASSWORD=shopping-app-db-password:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest,LANGCHAIN_API_KEY=langchain_api_key:latest
+        --image asia-northeast1-docker.pkg.dev/YOUR_PROJECT_ID/shopping-app-repo/shopping-app-backend:latest \
+        --region asia-northeast1 \
+        --platform managed \
+        --allow-unauthenticated \
+        --set-env-vars STORAGE_BUCKET=YOUR_STORAGE_BUCKET_NAME,DB_FILE_NAME=YOUR_DB_FILE_NAME,LANGCHAIN_TRACING_V2=true,LANGCHAIN_ENDPOINT=https://api.smith.langchain.com,LANGCHAIN_PROJECT=YOUR_LANGSMITH_PROJECT_NAME \
+        --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:latest,LANGCHAIN_API_KEY=langchain_api_key:latest
+        # --add-cloudsql-instances は削除
+        # DB_USER, DB_NAME, INSTANCE_CONNECTION_NAME は削除
+        # DB_PASSWORD シークレットは削除
     ```
 
     * **コマンドの説明:**
@@ -98,10 +104,20 @@
         * `--region ...`: デプロイ先のリージョン。
         * `--platform managed`: マネージドプラットフォームを使用。
         * `--allow-unauthenticated`: 認証なしアクセスを許可 (フロントエンドからのアクセス用)。
-        * `--add-cloudsql-instances ...`: Cloud SQL インスタンスへの接続を有効化。`YOUR_INSTANCE_CONNECTION_NAME` を置き換えてください。
-        * `--set-env-vars ...`: 環境変数を設定。`YOUR_INSTANCE_CONNECTION_NAME` や``を置き換えてください。
-        * `--set-secrets ...`: Secret Manager のシークレットを環境変数として設定。
+        * `--set-env-vars ...`: 環境変数を設定。SQLiteデータベースファイルを保存するCloud Storageバケット名 (`STORAGE_BUCKET`) とファイル名 (`DB_FILE_NAME`) を指定します。LangSmith関連も設定します。
+        * `--set-secrets ...`: Secret Manager のシークレットを環境変数として設定 (APIキーなど)。
+    * **重要:** Cloud Run サービスアカウントに、指定した Cloud Storage バケット (`YOUR_STORAGE_BUCKET_NAME`) への読み取り/書き込み権限 (`roles/storage.objectAdmin` など) が付与されている必要があります。付与されていない場合は、IAM設定で追加してください。
+        ```bash
+        # 例: デフォルトのCompute Engineサービスアカウントに権限を付与
+        gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+            --member="serviceAccount:YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+            --role="roles/storage.objectAdmin"
 
+        # または、Cloud Run用に作成したサービスアカウントに権限を付与
+        gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+            --member="serviceAccount:YOUR_RUN_SERVICE_ACCOUNT_EMAIL" \
+            --role="roles/storage.objectAdmin"
+        ```
 ### 4.2. フロントエンドの更新・デプロイ (Firebase Hosting)
 
 フロントエンドのコード (`frontend/` ディレクトリ以下) を変更した場合、以下の手順でデプロイします。
@@ -126,21 +142,22 @@
 
 ローカルでの開発・テストには以下のツールが役立ちます。
 
-*   **Docker Compose (`docker-compose.yml`):** (オプション) ローカルで PostgreSQL コンテナなどを起動する場合に使用。
-*   **Cloud SQL Auth Proxy:** ローカルマシンから Cloud SQL インスタンスへ安全に接続するためのプロキシ。
-    ```bash
-    # Cloud SQL Auth Proxy の起動例 (INSTANCE_CONNECTION_NAME を置き換える)
-    ./cloud-sql-proxy YOUR_INSTANCE_CONNECTION_NAME -p 5432
-    ```
-*   **Python バックエンドサーバー:**
+* **Cloud Storage バケット:** ローカル開発時も、テスト用の Cloud Storage バケットを用意し、`STORAGE_BUCKET` 環境変数を設定すると、デプロイ環境に近い動作を確認できます。または、ローカルファイルシステムのみでテストすることも可能です (`database.py` がローカルファイルを作成します)。
+
+* **Python バックエンドサーバー:**
+
     ```bash
     # backend ディレクトリで実行
     # 必要な環境変数を設定 (例: .env ファイルまたは直接)
-    # export DATABASE_URL="postgresql+psycopg2://postgres:YOUR_LOCAL_PROXY_PASSWORD@127.0.0.1:5432/shopping_app_db"
+    # export STORAGE_BUCKET="your-dev-bucket" # オプション
+    # export DB_FILE_NAME="dev_shopping_app.db" # オプション
     # export ANTHROPIC_API_KEY="..."
-    python backend/main.py
+    # export LANGCHAIN_API_KEY="..." # オプション
+    uvicorn main:app --reload # uvicorn を使用
     ```
-*   **Vite 開発サーバー:**
+
+* **Vite 開発サーバー:**
+
     ```bash
     # frontend ディレクトリで実行
     # .env ファイルで VITE_API_BASE_URL=http://localhost:8000 などを設定

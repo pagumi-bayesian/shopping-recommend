@@ -15,21 +15,19 @@
 ### テキスト記述
 
 ```
-【ローカル環境（初期フェーズ）】
-Webフロントエンド → Pythonバックエンド → SQLiteデータベース + LLM API
-
-【クラウド環境（将来フェーズ）】
-Webフロントエンド → Pythonバックエンド → PostgreSQLデータベース + LLM API
+【現在の構成 (Cloud Run + SQLite/GCS)】
+Webフロントエンド (Firebase Hosting) → Pythonバックエンド (Cloud Run) → SQLiteデータベース (Cloud Storage永続化) + LLM API
 ```
 
-### Mermaid図 (ローカル環境)
+### Mermaid図 (現在の構成)
 
 ```mermaid
-graph LR
-    subgraph ローカル環境
-        A["Webフロントエンド(Vue.js)"] -- APIリクエスト --> B{"Pythonバックエンド(FastAPI)"};
-        B -- データ読み書き --> C[(SQLiteデータベース)];
-        B -- 提案生成リクエスト --> D{{"LLM API (Anthropic)"}};
+graph TD
+    subgraph GCP/Firebase
+        A["Webフロントエンド<br>(Vue.js on Firebase Hosting)"] -- APIリクエスト --> B{"Pythonバックエンド<br>(FastAPI on Cloud Run)"};
+        B -- DBファイル読み書き --> C["SQLiteファイル (/tmp)"];
+        C <--> D[(Cloud Storage)];
+        B -- 提案生成リクエスト --> E{{"LLM API (Anthropic)"}};
     end
 ```
 
@@ -41,8 +39,7 @@ graph LR
 - **フレームワーク**: FastAPI（高速、型ヒント対応、自動ドキュメント生成）
 - **コンテナ化**: Docker
 - **データベース**:
-  - 初期: SQLite（シンプル、ファイルベース）
-  - 将来: PostgreSQL（スケーラブル、クラウド対応）
+  - 現在: SQLite（シンプル、ファイルベース、Cloud Storageで永続化）
 
 ### フロントエンド
 
@@ -58,7 +55,7 @@ graph LR
 ### インフラ
 
 - **開発環境**: Docker Compose（複数サービスの管理）
-- **将来デプロイ**: AWS/GCP/Azureなどのクラウドサービス
+- **デプロイ**: GCP (Cloud Run, Cloud Storage), Firebase Hosting
 
 ## 3. システムコンポーネント
 
@@ -77,9 +74,10 @@ graph LR
 - 季節情報取得モジュール
 
 ### データストア
-- 商品マスタ
-- 購入履歴
-- ユーザー設定
+- SQLiteデータベースファイル (Cloud Storageに保存)
+  - 商品マスタ (テーブル)
+  - 購入履歴 (テーブル)
+  - ユーザー設定 (テーブル)
 
 ## 4. データモデル
 
@@ -161,11 +159,10 @@ graph LR
 - 提案アルゴリズムの改良
 - ユーザーフィードバック機能
 
-### フェーズ4: クラウド移行準備（必要に応じて）
+### フェーズ4: クラウド移行 (完了)
 
-- PostgreSQLへの移行
-- クラウドデプロイ設定
-- スケーラビリティ対応
+- Cloud SQL (PostgreSQL) から SQLite + Cloud Storage へ移行
+- Cloud Run, Cloud Storage, Firebase Hosting を使用したデプロイ設定を確立
 
 ## 7. 技術的な考慮事項
 
@@ -178,7 +175,8 @@ graph LR
 ### データ管理
 
 - **スキーマ設計**: 柔軟性と将来の拡張を考慮
-- **マイグレーション**: SQLite→PostgreSQLへの移行を容易にする設計
+- **マイグレーション**: Alembicを使用してSQLiteスキーマを管理
+- **永続化**: Cloud RunのライフサイクルイベントとCloud Storageを利用してSQLiteファイルを永続化
 
 ### セキュリティ
 
@@ -195,7 +193,7 @@ Docker Compose環境を使用し、以下のコンテナを構成します：
 
 - FastAPI Backendコンテナ
 - Vue.js Frontendコンテナ
-- SQLiteデータベース（ボリュームマウント）
+- SQLiteデータベース (Cloud Storage連携)
 
 VSCodeとDocker拡張機能を使用して開発を行います。
 

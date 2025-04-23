@@ -79,8 +79,15 @@ async def create_purchase(purchase: schemas.PurchaseHistoryCreate, db: AsyncSess
         # 商品が存在しない場合はエラー
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # crud.create_purchase_history は Pydantic モデルを返すのでそのまま return
-    return await crud.create_purchase_history(db=db, purchase=purchase) # await 追加
+    new_purchase = await crud.create_purchase_history(db=db, purchase=purchase) # await 追加
+    # DB書き込み後にCloud Storageへアップロード
+    try:
+        await database.upload_db_file_async()
+        logger.info(f"Database uploaded after creating purchase {new_purchase.id}")
+    except Exception as e:
+        logger.error(f"Failed to upload database after creating purchase {new_purchase.id}: {e}", exc_info=True)
+        # アップロード失敗はAPIエラーとしない（DB書き込みは成功しているため）
+    return new_purchase
 
 @app.get("/history/{user_id}", response_model=list[schemas.PurchaseHistory])
 async def read_purchase_history(user_id: int, skip: int = 0, limit: int = 100, db: AsyncSession = Depends(database.get_db)): # Session -> AsyncSession
@@ -101,7 +108,14 @@ async def create_user_endpoint(user: schemas.UserCreate, db: AsyncSession = Depe
     db_user = await crud.get_user_by_name(db, name=user.name) # await 追加
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    return await crud.create_user(db=db, user=user) # await 追加
+    new_user = await crud.create_user(db=db, user=user) # await 追加
+    # DB書き込み後にCloud Storageへアップロード
+    try:
+        await database.upload_db_file_async()
+        logger.info(f"Database uploaded after creating user {new_user.id}")
+    except Exception as e:
+        logger.error(f"Failed to upload database after creating user {new_user.id}: {e}", exc_info=True)
+    return new_user
 
 # --- ユーザー検索エンドポイント ---
 @app.get("/users/search", response_model=list[schemas.User])
@@ -119,7 +133,14 @@ async def search_users_endpoint(q: str = "", db: AsyncSession = Depends(database
 async def create_product_endpoint(product: schemas.ProductCreate, db: AsyncSession = Depends(database.get_db)): # def -> async def, Session -> AsyncSession
     """新しい商品を作成する"""
     # 簡単のため、同名商品の重複チェックは省略
-    return await crud.create_product(db=db, product=product) # await 追加
+    new_product = await crud.create_product(db=db, product=product) # await 追加
+    # DB書き込み後にCloud Storageへアップロード
+    try:
+        await database.upload_db_file_async()
+        logger.info(f"Database uploaded after creating product {new_product.id}")
+    except Exception as e:
+        logger.error(f"Failed to upload database after creating product {new_product.id}: {e}", exc_info=True)
+    return new_product
 
 # --- 商品検索エンドポイント ---
 @app.get("/products/search", response_model=list[schemas.Product])

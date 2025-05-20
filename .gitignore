@@ -6,3 +6,4 @@ frontend/src/firebaseConfig.js
 frontend/.env*
 backend/.env
 *.csv
+.DS_store

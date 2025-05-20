@@ -1,36 +1,39 @@
 import os
-# from openai import OpenAI # 不要
-# from anthropic import Anthropic, APIError # Anthropic直接利用は不要に
 from typing import List, Dict, Any
-from langchain_anthropic import ChatAnthropic # LangChainのAnthropicモデルをインポート
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 # from langchain_core.messages import SystemMessage, HumanMessage # ChatPromptTemplateを使うので直接は不要かも
 
-# APIキーを環境変数から読み込む (LangChainが内部で利用)
-api_key = os.getenv("ANTHROPIC_API_KEY")
-if not api_key:
-    print(
-        "警告: 環境変数 ANTHROPIC_API_KEY が設定されていません。LLM連携機能は動作しません。"
-    )
-    # LangChainモデルの初期化は呼び出し時に行うか、Noneチェックを入れる
-    llm = None
+LLM_PROVIDER = "OPENAI"
+MAX_TOKENS = 1000
+
+# LLMの初期化
+def get_llm():
+    if LLM_PROVIDER.lower() == "anthropic":
+        model_name = "claude-3-7-sonnet-20250219"
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        return ChatAnthropic(model=model_name, api_key=api_key, max_tokens=MAX_TOKENS)
+    elif LLM_PROVIDER.lower() == "openai":
+        model_name = "gpt-4o-2024-08-06"
+        api_key = os.getenv("OPENAI_API_KEY")
+        return ChatOpenAI(model=model_name, api_key=api_key, max_tokens=MAX_TOKENS)
 
 def generate_suggestions(
-    user_prompt: str, model_name: str = "claude-3-7-sonnet-20250219", max_tokens: int = 1000 # 引数名とモデル名を変更 (最新の推奨モデル名を確認)
+    user_prompt: str, max_tokens: int = 1000 # 引数名とモデル名を変更 (最新の推奨モデル名を確認)
 ) -> str:
     """
     指定されたプロンプトを使用して Anthropic Claude から提案を生成する。
 
     Args:
         user_prompt (str): LLMに渡すユーザー固有のプロンプト部分（例: 購入履歴）。
-        model_name (str): 使用するAnthropicモデル名。
         max_tokens (int): 生成する最大トークン数。
 
     Returns:
         str: LLMによって生成された提案テキスト。エラー時は空文字列を返す。
     """
-    llm = ChatAnthropic(model=model_name, temperature=0.7, api_key=api_key)
+    llm = get_llm()  # LLMを初期化
 
     # システムプロンプトを定義 (Anthropic APIでは別パラメータで渡す)
     # --- LangChain プロンプトテンプレートの定義 ---
@@ -49,6 +52,7 @@ def generate_suggestions(
     - 提案する食品に基づいた簡単な献立（料理）を2〜3品併せて提案してください。
 
 提案の形式は以下のようなマークダウン形式にしてください。
+ただし、出力には前置きやMarkdownのコードブロックマーカー（例: ```markdown）は一切含めないでください。
 ```markdown
 ## 【提案商品】
 - 商品名
@@ -75,10 +79,6 @@ def generate_suggestions(
     # -----------------------------------------
 
     # --- LangChain チェーンの定義と実行 ---
-    # モデル名とmax_tokensをここで指定
-    llm.model = model_name
-    llm.max_tokens = max_tokens
-
     output_parser = StrOutputParser()
     chain = chat_prompt | llm | output_parser
 
@@ -120,8 +120,7 @@ def format_purchase_history_for_prompt(history: List[Dict[str, Any]]) -> str:
             f"- {product_name}, 購入日: {item['purchase_date']}"
         )  # 商品IDを商品名に変更、数量は削除済み
 
-    # 直近の履歴に絞るなどの工夫も可能
-    recent_history = formatted_list[:20]  # 例: 直近20件
+    recent_history = formatted_list
 
     return "最近の購入履歴:\n" + "\n".join(recent_history)
 

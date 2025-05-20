@@ -179,7 +179,7 @@ async def suggest_items_endpoint(user_id: int, db: AsyncSession = Depends(databa
         raise HTTPException(status_code=404, detail="User not found")
 
     # 購入履歴を取得
-    history_orm = await crud.get_purchase_history(db, user_id=user_id, limit=20) # await 追加
+    history_orm = await crud.get_purchase_history(db, user_id=user_id)
 
     # PurchaseHistoryオブジェクトを辞書のリストに変換 (Pydanticモデル経由)
     # Pydantic V2 を想定: model_validate と model_dump

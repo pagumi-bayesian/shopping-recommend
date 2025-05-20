@@ -44,7 +44,6 @@
     gsutil mb -l asia-northeast1 gs://shopping-app-sqlite-db
     ```
 2.  **IAM権限:** Cloud Run サービスが使用するサービスアカウントに、このバケットへの読み取りおよび書き込み権限 (`roles/storage.objectAdmin` または `roles/storage.objectUser`) を付与します (後述のデプロイ手順で設定)。
-# Cloud SQL (PostgreSQL) セクションは削除
 
 ### 3.2. Artifact Registry
 
